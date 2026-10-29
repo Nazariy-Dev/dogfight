@@ -45,3 +45,35 @@
 
 Зі змінним кроком результат залежить від того, як «нарізано» кадри, і не відтворюється.
 З фіксованим – збігається до останнього знака.
+
+## Lab 2 – Об'єкти, класи, this
+
+`src/sim/`: `vector.js` (незмінний `Vector2`), `entity.js` (`Entity` і рівно один рівень
+нащадків: `Ship`, `Bullet`, `Asteroid`, `Explosion`, `Pickup`), `world.js` (`World` над `Map`,
+`*ofKind`, відкладене видалення), `collision.js` (O(n²) як окрема функція), `behaviors.js`
+(компоненти `homing` і ефекти pickup).
+
+### Баг із this (`node scripts/this-bug.js`)
+
+```
+1) addEventListener(ship.fire) -> TypeError: Cannot read properties of undefined (reading 'add')
+2) () => ship.fire()           -> куля створена
+3) ship.fire.bind(ship)        -> куля створена
+4) const f = ship.fire; f()    -> TypeError: Cannot read properties of undefined (reading 'dead')
+```
+
+Передаючи `ship.fire`, передаємо функцію без об'єкта зліва від крапки. Модулі й класи в strict mode,
+тому `this` = `undefined` (або `EventTarget`, якщо викликає DOM). Обрано варіант 2 – стрілку в місці виклику:
+вона нічого не коштує екземплярам. `bind` створює нову функцію, і її треба зберегти, щоб потім зняти слухача.
+Поле-стрілка `fire = () => {}` у класі працює, але дає копію функції в кожному екземплярі.
+У грі `fire()` взагалі не передається в DOM: клавіша лише виставляє `controls.fire`, а `World.step` викликає `s.fire()`.
+
+### Композиція замість ієрархії
+
+Як виглядала б ієрархія: `Entity → Moving → Projectile → Bullet → HomingBullet`,
+`Entity → Moving → Rock → Asteroid → HomingAsteroid`, `Entity → Collidable → Pickup → ShieldPickup / RapidPickup`.
+Самонаведення довелося б дублювати в двох гілках, а «самонавідна куля від pickup» вимагала б ще один клас.
+
+Обрано компоненти як дані: `e.homing = makeHoming({...})` можна повісити на будь-яку сутність, і
+`homingSystem` обробляє все, що має це поле. Pickup – це `Entity` з полем `pickup = { effect, duration }`,
+а ефекти – таблиця `PICKUP_EFFECTS` (новий ефект = новий рядок). Дані легко серіалізувати, що знадобиться в Lab 5.
