@@ -89,8 +89,8 @@ middleware `?delay=мс` у `vite.config.js`.
 
 | Спосіб | Час, мс (3 запуски) |
 |---|---|
-| послідовні `await` | 1454 / 1428 / 1421 |
-| `Promise.all` | 208 / 210 / 209 |
+| послідовні `await` | 1441 / 1427 / 1422 |
+| `Promise.all` | 208 / 209 / 208 |
 
 ### Головоломки порядку (`node scripts/puzzles.js`, `public/puzzle-raf.html`)
 
