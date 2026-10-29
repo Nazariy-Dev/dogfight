@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "images": {
+    "ships": "assets/ships.png",
+    "rocks": "assets/rocks.png",
+    "fx": "assets/fx.png"
+  },
+  "sounds": {
+    "shoot": "assets/shoot.wav",
+    "hit": "assets/hit.wav",
+    "explode": "assets/explode.wav"
+  },
+  "json": {
+    "arena": "assets/arena.json"
+  }
+}

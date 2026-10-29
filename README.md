@@ -77,3 +77,42 @@
 Обрано компоненти як дані: `e.homing = makeHoming({...})` можна повісити на будь-яку сутність, і
 `homingSystem` обробляє все, що має це поле. Pickup – це `Entity` з полем `pickup = { effect, duration }`,
 а ефекти – таблиця `PICKUP_EFFECTS` (новий ефект = новий рядок). Дані легко серіалізувати, що знадобиться в Lab 5.
+
+## Lab 3 – Асинхронний JavaScript
+
+`src/assets/loader.js` (`fetchJson`, `loadImage`, `loadAudio`, `withRetry`, `loadAll`), `src/events.js`
+(`GameBus extends EventTarget`), `src/audio.js` (Web Audio), `src/ui/lobby.js` (`Lobby extends EventTarget`)
+і `src/ui/lobby-view.js` (DOM окремо). Збої імітує `?fault=404|timeout|abort|badjson|slow`, затримку дає
+middleware `?delay=мс` у `vite.config.js`.
+
+### Sequential vs concurrent (`node scripts/seq-vs-concurrent.js 200`, 7 файлів, +200 мс на файл)
+
+| Спосіб | Час, мс (3 запуски) |
+|---|---|
+| послідовні `await` | 1454 / 1428 / 1421 |
+| `Promise.all` | 208 / 210 / 209 |
+
+### Головоломки порядку (`node scripts/puzzles.js`, `public/puzzle-raf.html`)
+
+1. `async f(){log A; await 0; log B}; f(); log C` → `A C B`: `await` віддає керування навіть на не-промісі.
+2. `setTimeout T1; then{M1; setTimeout T2; queueMicrotask M2}; log S` → `S M1 M2 T1 T2`: мікрозадачі
+   доїдаються до кінця, T2 стає в чергу задач після T1.
+3. `then(a1, return Promise.resolve()).then(a2)` паралельно з ланцюжком `b1..b4` → `a1 b1 b2 b3 a2 b4`:
+   повернений проміс «розгортається» ще за два такти мікрозадач.
+4. `new Promise(res => {log exec; res first; res second})` → `exec after first`: виконавець синхронний,
+   проміс встановлюється один раз.
+5. Усередині задачі: `rAF raf1 {micro-in-raf, setTimeout}`, `rAF raf2`, `then micro`, `log sync` →
+   `sync micro raf1 micro-in-raf raf2 timeout-in-raf`: мікрозадачі виконуються після кожного колбека rAF,
+   таймер, поставлений у rAF, чекає наступної задачі після рендеру.
+
+### Галерея збоїв
+
+| Збій | Що бачить гравець | Лог |
+|---|---|---|
+| 404 спрайта | екран з помилкою і Retry | `HttpError: HTTP 404 for assets/missing-ships.png` |
+| таймаут мережі (1,5 с) | «таймаут мережі», Retry | `TimeoutError: signal timed out` |
+| abort посеред завантаження | «завантаження скасовано», Retry | `AbortError` |
+| битий JSON арени | повідомлення, Retry | `SyntaxError: Bad JSON in assets/broken.json` |
+| повільний файл (+2,5 с) | прогрес-бар чекає, гра стартує | `loaded in 2599 ms` |
+
+Після Retry гра в усіх чотирьох випадках доходить до лобі.

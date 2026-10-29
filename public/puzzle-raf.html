@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Puzzle 5: rAF</title>
+<pre id="out"></pre>
+<script>
+  // Головоломка 5: де стоїть requestAnimationFrame відносно мікрозадач і таймерів
+  const out = []
+  const log = (s) => out.push(s)
+  setTimeout(() => {
+    requestAnimationFrame(() => {
+      log('raf1')
+      Promise.resolve().then(() => log('micro-in-raf'))
+      setTimeout(() => log('timeout-in-raf'), 0)
+    })
+    requestAnimationFrame(() => log('raf2'))
+    Promise.resolve().then(() => log('micro'))
+    log('sync')
+    setTimeout(() => {
+      document.getElementById('out').textContent = out.join(' ')
+      window.done = out.join(' ')
+    }, 200)
+  }, 50)
+</script>

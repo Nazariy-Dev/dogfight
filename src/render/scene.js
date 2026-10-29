@@ -29,13 +29,35 @@ function drawAsteroid(ctx, e, p) {
 
 const PICKUP_COLORS = { shield: '#6ee7ff', rapid: '#ffe066', homing: '#ff8fe0' }
 
-export function drawWorld(ctx, world, alpha) {
+/** Кадр зі спрайтшиту: drawImage з прямокутником-джерелом, центр у (0,0). */
+function sprite(ctx, img, sx, sy, sw, sh, p, scale = 1) {
+  ctx.save()
+  ctx.translate(p.x, p.y)
+  ctx.rotate(p.angle)
+  ctx.drawImage(
+    img,
+    sx,
+    sy,
+    sw,
+    sh,
+    (-sw / 2) * scale,
+    (-sh / 2) * scale,
+    sw * scale,
+    sh * scale,
+  )
+  ctx.restore()
+}
+
+export function drawWorld(ctx, world, alpha, images = {}) {
   for (const e of world) {
     const p = at(e, alpha)
     switch (e.kind) {
       case 'ship':
         if (e.dead) break
-        drawShip(ctx, { ...p, thrusting: e.thrusting }, e.color)
+        if (images.ships) {
+          const row = e.owner === 'dummy' ? 1 : 0
+          sprite(ctx, images.ships, e.thrusting ? 48 : 0, row * 48, 48, 48, p)
+        } else drawShip(ctx, { ...p, thrusting: e.thrusting }, e.color)
         if (e.shield > 0) {
           ctx.strokeStyle = 'rgba(110,231,255,0.7)'
           ctx.beginPath()
@@ -49,13 +71,28 @@ export function drawWorld(ctx, world, alpha) {
         ctx.fillRect(p.x - 16, p.y - 26, (32 * e.hp) / 100, 4)
         break
       case 'bullet':
+        if (images.fx && !e.homing) {
+          sprite(ctx, images.fx, 0, 0, 16, 16, p)
+          break
+        }
         ctx.fillStyle = e.homing ? '#ff8fe0' : '#fff6b0'
         ctx.beginPath()
         ctx.arc(p.x, p.y, e.radius, 0, Math.PI * 2)
         ctx.fill()
         break
       case 'asteroid':
-        drawAsteroid(ctx, e, p)
+        if (images.rocks && !e.homing) {
+          sprite(
+            ctx,
+            images.rocks,
+            (e.size - 1) * 64,
+            0,
+            64,
+            64,
+            p,
+            e.radius / (10 + e.size * 9),
+          )
+        } else drawAsteroid(ctx, e, p)
         break
       case 'pickup':
         ctx.save()

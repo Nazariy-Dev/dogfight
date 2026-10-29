@@ -8,10 +8,20 @@
     <style>
       html, body { margin: 0; height: 100%; background: #0b1020; overflow: hidden; }
       canvas { display: block; width: 100vw; height: 100vh; }
+      #ui { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none;
+            font: 15px system-ui, sans-serif; color: #d6e4ff; }
+      #ui > * { pointer-events: auto; }
+      .lobby, .overlay { background: rgba(10,16,36,.92); border: 1px solid #2c3d6b; padding: 20px 28px; border-radius: 8px; min-width: 320px; }
+      .lobby ul { list-style: none; padding: 0; }
+      .lobby li { margin: 8px 0; display: flex; justify-content: space-between; gap: 12px; }
+      .overlay { margin-top: 150px; }
+      .muted { color: #8796bb; }
+      button { background: #7fd1ff; border: 0; padding: 4px 12px; border-radius: 4px; cursor: pointer; }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="ui"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
