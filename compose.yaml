@@ -1,0 +1,15 @@
+services:
+  dogfight:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ALLOWED_ORIGINS: http://localhost:8080
+    stop_grace_period: 10s
+    restart: unless-stopped

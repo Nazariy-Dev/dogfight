@@ -38,6 +38,7 @@ interface AppState {
   closed?: number
   chat?: string[]
   frameTimes?: number[]
+  notice?: string | undefined
 }
 declare global {
   interface Window {
@@ -151,15 +152,21 @@ async function boot(): Promise<void> {
   }
 }
 
-function showLobby(assets: Assets): void {
+function showLobby(assets: Assets, notice?: string): void {
   app.state = 'lobby'
+  app.notice = notice
+  ui.innerHTML = ''
   drawBackground(ctx, size.w, size.h)
-  const lobby = new Lobby({ url: '/api/rooms', intervalMs: 4000, timeoutMs: 2500 })
-  const unmount = mountLobbyView(ui, lobby)
+  const lobby = new Lobby({
+    url: '/api/rooms',
+    intervalMs: notice ? 1500 : 4000,
+    timeoutMs: 2500,
+  })
+  const unmount = mountLobbyView(ui, lobby, notice)
   lobby.on('join', ({ room, name }) => {
     unmount()
     void audio.unlock() // клік по Join — жест користувача
-    if (NET) startNetGame(room, name)
+    if (NET) startNetGame(assets, room, name)
     else startLocalGame(assets, room, name)
   })
   lobby.start()
@@ -167,7 +174,7 @@ function showLobby(assets: Assets): void {
 }
 
 /** Lab 5+: сервер рахує світ, клієнт шле input, передбачає себе й інтерполює інших. */
-function startNetGame(room: RoomInfo, name: string): void {
+function startNetGame(assetsRef: Assets, room: RoomInfo, name: string): void {
   app.state = 'game'
   const codec = params.get('codec') === 'json' ? 'json' : 'binary'
   const lag = {
@@ -206,8 +213,25 @@ function startNetGame(room: RoomInfo, name: string): void {
     chat = [...chat.slice(-3), `${m.from}: ${m.text}`]
     app.chat = chat
   })
+  // Сервер зупинився або впав: повертаємо гравця в лобі з повідомленням.
+  // Лобі саме опитує /api/rooms з backoff, тож щойно сервер підніметься — список з'явиться.
+  let backToLobby = false
+  const leave = (why: string): void => {
+    if (backToLobby) return
+    backToLobby = true
+    connWithRaw.close()
+    loop.stop()
+    input.dispose()
+    app.net = undefined
+    showLobby(assetsRef, why)
+  }
+  connWithRaw.on('shutdown', () =>
+    leave('Сервер перезапускається — оберіть кімнату ще раз'),
+  )
   connWithRaw.on('status', (s) => {
     if (s.status === 'closed') app.closed = s.code
+    if (s.status === 'closed' && s.code !== 1000)
+      leave(`З'єднання втрачено (код ${s.code ?? '?'})`)
   })
   connWithRaw.connect()
   app.conn = connWithRaw
@@ -237,6 +261,7 @@ function startNetGame(room: RoomInfo, name: string): void {
         `room     ${room.id}`,
         `pilot    ${name}`,
         `players  ${roster.join(', ')}`,
+        `build    ${version}`,
         ...chat,
       ])
       if (game)
@@ -305,5 +330,24 @@ function startLocalGame(assets: Assets, room: RoomInfo, name: string): void {
   loop.start()
   Object.assign(app, { world, player, loop })
 }
+
+// PWA: service worker лише в production-збірці
+if ('serviceWorker' in navigator && import.meta.env.PROD)
+  void navigator.serviceWorker.register('/sw.js')
+
+// версія збірки (git SHA) з /health — у HUD
+let version = '…'
+void fetch('/health')
+  .then((r) => r.json())
+  .then((h: unknown) => {
+    if (
+      typeof h === 'object' &&
+      h !== null &&
+      'version' in h &&
+      typeof h.version === 'string'
+    )
+      version = h.version
+  })
+  .catch(() => {})
 
 void boot()

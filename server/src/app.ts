@@ -13,6 +13,7 @@ import {
 import { startMatchLog, type MatchLog } from './log/matchlog.ts'
 import { Match } from './match.ts'
 import { makeLogger, type Log } from './logger.ts'
+import { createMetrics } from './metrics.ts'
 import type { ServerConfig } from './config.ts'
 import { z } from 'zod'
 
@@ -46,6 +47,11 @@ export function createApp(
   const matches = new Map<string, Match>()
   let wsApi: WsApi | null = null
   let lastElu = performance.eventLoopUtilization()
+  let ready = true // /ready: false під час зупинки — балансувальник більше не шле нових гравців
+  const metrics = createMetrics(
+    () => matches.values(),
+    () => wsApi,
+  )
 
   const onRoom = (room: Room): void => {
     try {
@@ -82,7 +88,17 @@ export function createApp(
       const url = new URL(req.url ?? '/', 'http://x')
       try {
         if (url.pathname === '/health')
-          return sendJson(res, 200, { ok: true, uptime: process.uptime() })
+          return sendJson(res, 200, {
+            ok: true,
+            uptime: process.uptime(),
+            version: cfg.gitSha,
+          })
+        if (url.pathname === '/ready')
+          return sendJson(res, ready ? 200 : 503, { ready, rooms: rooms.rooms.size })
+        if (url.pathname === '/metrics') {
+          res.writeHead(200, { 'content-type': metrics.registry.contentType })
+          return void res.end(await metrics.registry.metrics())
+        }
         if (url.pathname === '/api/rooms' && req.method === 'GET')
           return sendJson(res, 200, rooms.list())
         if (url.pathname === '/api/rooms' && req.method === 'POST') {
@@ -166,11 +182,18 @@ export function createApp(
     })()
   })
 
-  const ws = attachWebSocket(server, { rooms, cfg, log, matches })
+  const ws = attachWebSocket(server, {
+    rooms,
+    cfg,
+    log,
+    matches,
+    onReject: (reason) => metrics.rejections.inc({ reason }),
+  })
   wsApi = ws
 
   async function shutdown(): Promise<void> {
     log('info', 'shutdown start')
+    ready = false
     server.close()
     await ws.closeAll()
     for (const m of matches.values()) m.stop()

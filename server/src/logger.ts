@@ -1,24 +1,40 @@
+import { pino, type Logger } from 'pino'
+
 export type Level = 'debug' | 'info' | 'warn' | 'error'
 export type Log = (lvl: Level, msg: string, fields?: Record<string, unknown>) => void
 
-const ORDER: Record<Level | 'silent', number> = {
-  debug: 10,
-  info: 20,
-  warn: 30,
-  error: 40,
-  silent: 99,
+/**
+ * Логи — рядки JSON у stdout через pino (Lab 8). Поля roomId/playerId передаються в fields.
+ * redact прибирає випадкові секрети з логів.
+ */
+export function createPino(
+  level = process.env.LOG_LEVEL ?? 'info',
+  dest?: NodeJS.WritableStream,
+): Logger {
+  return pino(
+    {
+      level: level === 'silent' ? 'silent' : level,
+      base: { pid: process.pid },
+      redact: [
+        'password',
+        'token',
+        'secret',
+        '*.password',
+        '*.token',
+        'headers.cookie',
+        'headers.authorization',
+      ],
+      timestamp: pino.stdTimeFunctions.isoTime,
+    },
+    dest ?? pino.destination({ sync: false }),
+  )
 }
 
-/** Простий логер: рядок JSON у stdout (у Lab 8 замінено на pino). */
 export function makeLogger(
-  level: string = 'info',
-  write = (s: string) => void process.stdout.write(s),
-): Log {
-  const min = isLevel(level) ? ORDER[level] : ORDER.info
-  return (lvl, msg, fields = {}) => {
-    if (ORDER[lvl] < min) return
-    write(JSON.stringify({ t: new Date().toISOString(), lvl, msg, ...fields }) + '\n')
-  }
+  level?: string,
+  dest?: NodeJS.WritableStream,
+): Log & { flush(): void } {
+  const p = createPino(level, dest)
+  const log: Log = (lvl, msg, fields = {}) => p[lvl](fields, msg)
+  return Object.assign(log, { flush: () => p.flush() })
 }
-
-const isLevel = (s: string): s is keyof typeof ORDER => Object.hasOwn(ORDER, s)

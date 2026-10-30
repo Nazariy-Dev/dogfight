@@ -1,10 +1,15 @@
 import type { Lobby, RoomInfo } from './lobby.ts'
 
 /** DOM-представлення лобі; мережі не торкається. */
-export function mountLobbyView(root: HTMLElement, lobby: Lobby): () => void {
+export function mountLobbyView(
+  root: HTMLElement,
+  lobby: Lobby,
+  notice?: string,
+): () => void {
   root.innerHTML = `
     <div class="lobby">
       <h1>Dogfight</h1>
+      <p id="notice" class="notice"></p>
       <label>Ім'я <input id="name" maxlength="16" value="pilot"></label>
       <ul id="rooms"><li class="muted">Завантаження кімнат…</li></ul>
       <form id="create"><input id="newroom" placeholder="нова-кімната" maxlength="24"><button>Create</button></form>
@@ -15,6 +20,7 @@ export function mountLobbyView(root: HTMLElement, lobby: Lobby): () => void {
     if (!el) throw new Error(`missing ${sel}`)
     return el
   }
+  q<HTMLParagraphElement>('#notice').textContent = notice ?? ''
   const list = q<HTMLUListElement>('#rooms')
   const status = q<HTMLParagraphElement>('#status')
   const nameInput = q<HTMLInputElement>('#name')

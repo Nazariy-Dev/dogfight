@@ -14,6 +14,7 @@ import type { Player, Room, RoomManager } from './rooms.ts'
 import type { Match } from './match.ts'
 import type { ServerConfig } from './config.ts'
 import type { Log } from './logger.ts'
+import { IpLimiter, originAllowed } from './origin.ts'
 
 interface SocketState {
   player: Player | null
@@ -53,14 +54,36 @@ export function attachWebSocket(
     cfg,
     log,
     matches,
+    onReject = () => {},
   }: {
     rooms: RoomManager
     cfg: ServerConfig
     log: Log
     matches: ReadonlyMap<string, Match>
+    onReject?: (reason: string) => void
   },
 ): WsApi {
-  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: cfg.maxPayload })
+  const perIp = new IpLimiter(cfg.maxConnectionsPerIp)
+  const ipOf = (req: { socket: { remoteAddress?: string | undefined } }): string =>
+    req.socket.remoteAddress ?? '?'
+  const wss = new WebSocketServer({
+    server,
+    path: '/ws',
+    maxPayload: cfg.maxPayload,
+    // Рукостискання: Origin і ліміт з'єднань з однієї IP — до апгрейду, без витрат на сокет
+    verifyClient: ({ origin, req }, done) => {
+      if (!originAllowed(origin, cfg.allowedOrigins, cfg.allowNoOrigin)) {
+        onReject('origin')
+        log('warn', 'origin rejected', { origin })
+        return done(false, 403, 'Forbidden origin')
+      }
+      if (!perIp.acquire(ipOf(req))) {
+        onReject('per-ip limit')
+        return done(false, 429, 'Too many connections')
+      }
+      done(true)
+    },
+  })
   const stats: WsStats = {
     connections: 0,
     closedByReason: {},
@@ -72,6 +95,7 @@ export function attachWebSocket(
 
   const closeWith = (ws: WebSocket, code: number, reason: string): void => {
     stats.closedByReason[reason] = (stats.closedByReason[reason] ?? 0) + 1
+    onReject(reason)
     log('warn', 'close', { code, reason, playerId: states.get(ws)?.player?.id })
     ws.close(code, reason)
   }
@@ -175,11 +199,10 @@ export function attachWebSocket(
         try {
           matches.get(state.room.id)?.input(state.player.id, decodeInput(bytes))
         } catch (err: unknown) {
-          closeWith(
-            ws,
-            CLOSE.BAD_MESSAGE,
-            err instanceof Error ? err.message : 'bad frame',
-          )
+          log('warn', 'bad frame', {
+            err: err instanceof Error ? err.message : String(err),
+          })
+          closeWith(ws, CLOSE.BAD_MESSAGE, 'bad binary frame')
         }
         return
       }
@@ -191,6 +214,7 @@ export function attachWebSocket(
     })
 
     ws.on('close', () => {
+      perIp.release(ipOf(req))
       clearTimeout(joinTimer)
       if (state.player && state.room) {
         matches.get(state.room.id)?.removePlayer(state.player.id)

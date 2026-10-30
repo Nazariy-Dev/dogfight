@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+logs
+.e2e-logs
+coverage
+playwright-report
+test-results
+docs
+*.md
+.env

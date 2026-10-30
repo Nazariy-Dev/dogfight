@@ -18,6 +18,23 @@ export const ConfigSchema = z.object({
   JOIN_TIMEOUT_MS: intEnv(5000, 100, 60000),
   HEARTBEAT_MS: intEnv(15000, 50, 120000),
   SLOW_CLIENT_BYTES: intEnv(256 * 1024, 1024, 64 << 20),
+  ALLOWED_ORIGINS: z
+    .string()
+    .default('')
+    .transform((s) =>
+      s
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.url())),
+  ALLOW_NO_ORIGIN: z
+    .enum(['0', '1', 'true', 'false'])
+    .default('1')
+    .transform((v) => v === '1' || v === 'true'),
+  MAX_CONNECTIONS_PER_IP: intEnv(16, 1, 100000),
+  BAD_FRAMES_PER_SECOND: intEnv(50, 1, 100000),
+  GIT_SHA: z.string().default('dev'),
 })
 
 export interface ServerConfig {
@@ -33,6 +50,10 @@ export interface ServerConfig {
   readonly joinTimeoutMs: number
   readonly heartbeatMs: number
   readonly slowClientBytes: number
+  readonly allowedOrigins: readonly string[]
+  readonly allowNoOrigin: boolean
+  readonly maxConnectionsPerIp: number
+  readonly gitSha: string
 }
 
 export function loadConfig(
@@ -63,5 +84,9 @@ export function loadConfig(
     joinTimeoutMs: c.JOIN_TIMEOUT_MS,
     heartbeatMs: c.HEARTBEAT_MS,
     slowClientBytes: c.SLOW_CLIENT_BYTES,
+    allowedOrigins: c.ALLOWED_ORIGINS,
+    allowNoOrigin: c.ALLOW_NO_ORIGIN,
+    maxConnectionsPerIp: c.MAX_CONNECTIONS_PER_IP,
+    gitSha: c.GIT_SHA,
   })
 }
