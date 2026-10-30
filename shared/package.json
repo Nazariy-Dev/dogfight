@@ -1,14 +1,19 @@
 {
   "name": "@dogfight/shared",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "exports": {
     "./sim/*": "./src/sim/*",
     "./protocol/*": "./src/protocol/*",
-    "./net/*": "./src/net/*"
+    "./net/*": "./src/net/*",
+    "./types.ts": "./src/types.ts"
   },
   "scripts": {
-    "test": "node --test --test-reporter=spec test/*.test.js"
+    "test": "node --test --test-reporter=spec test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
   }
 }

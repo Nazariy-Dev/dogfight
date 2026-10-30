@@ -194,3 +194,40 @@ RTT тут – від відправки input до знімка, що його 
   клієнт після кожного знімка ставить корабель у стан сервера і переграє непідтверджені input.
 - **Чіти:** координати від клієнта не приймаються; input – лише 4 біти кнопок, `seq` має зростати,
   черга обмежена 8 input, частоту обмежує token bucket.
+
+## Lab 6 – TypeScript
+
+Усі три пакети – TypeScript під `strict` + `noUncheckedIndexedAccess` + `verbatimModuleSyntax`
+(`tsconfig.base.json`). Node 22 запускає `.ts` напряму (type stripping), Vite збирає клієнт,
+`npm run typecheck` = `tsc --noEmit` у кожному пакеті, стоїть у CI (`.github/workflows/ci.yml`).
+`any` – жодного (правило ESLint `no-explicit-any`), приведень `as` – чотири, кожне з коментарем:
+три конструктори branded-типів у `shared/src/types.ts` і одне в `loadAll`.
+Тест детермінізму (`shared/test`) проходить, поведінка гри не змінилась.
+
+`shared/src/protocol/messages.ts` – zod-схеми всіх JSON-повідомлень, типи виведені з них,
+`parseClientMessage(data: unknown)` повертає `Result` і не кидає винятків. Ручний валідатор з Lab 4 видалено.
+Бінарний декодер перевіряє довжину, версію, тип, діапазони (`CodecError`). Конфіг сервера – zod-схема.
+
+### Що знайшов TypeScript
+
+1. `owner: 0` у тестах куль – такого id не існує; тип `EntityId | -1` змусив явно писати «нічия» (`-1`).
+2. `Omit<ServerMessage, 'v'>` над union «склеїв» варіанти, і `out({ type: 'roster', players })` перестало
+   компілюватись – знадобився дистрибутивний `Omit`.
+3. `rock.size - 1` давало `number`, а розмір астероїда – `1 | 2 | 3`; тепер розмір дитини рахується явно.
+4. `PICKUP_EFFECTS[effect]?.()` – опціональний виклик ховав би новий ефект без обробника; `Record<PickupEffect, …>`
+   робить пропуск помилкою компіляції.
+5. `new Promise(res => …)` у головоломці мав тип `Promise<unknown>`; `noUncheckedIndexedAccess` знайшов
+   десяток місць, де `arr[i]` міг бути `undefined` (кольори кораблів, перший знімок у буфері).
+
+### Три типи простими словами
+
+- **`EntityId = number & { [brand]: 'EntityId' }`** – у рантаймі звичайне число, але компілятор не дасть
+  передати номер кроку чи seq туди, де чекають id сутності.
+- **`Entity = Ship | Bullet | Asteroid | Explosion | Pickup`** – об'єднання з полем `kind`. Після
+  `switch (e.kind)` у кожній гілці TS знає конкретний клас, а `default: assertNever(e)` перестає компілюватись,
+  щойно з'являється новий вид без обробника.
+- **`Bus<E>` з `emit<K extends keyof E>(type: K, detail: E[K])`** – назва події визначає тип даних:
+  `bus.emit('hit', { target, by })` перевіряє саме поля події `hit`.
+
+Фреймворк для лобі/HUD не взято: лобі – це 40 рядків DOM-коду поверх типізованої шини, а Svelte/React
+додали б збірку компонентів і бандл без помітного виграшу на такому обсязі.

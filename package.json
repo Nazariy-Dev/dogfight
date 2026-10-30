@@ -1,6 +1,6 @@
 {
   "name": "dogfight",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -10,19 +10,24 @@
   ],
   "scripts": {
     "dev:client": "npm run dev -w client",
-    "dev:server": "node --env-file-if-exists=.env --watch server/src/index.js",
+    "dev:server": "node --env-file-if-exists=.env --watch server/src/index.ts",
     "build": "npm run build -w client",
-    "start": "node server/src/index.js",
+    "start": "node server/src/index.ts",
     "test": "npm test --workspaces",
     "lint": "eslint .",
-    "format": "prettier --write client server"
+    "format": "prettier --write client server",
+    "typecheck": "npm run typecheck --workspaces"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.2",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.5"
   }
 }
