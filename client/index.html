@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dogfight</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b1020;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #ui {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        pointer-events: none;
+        font:
+          15px system-ui,
+          sans-serif;
+        color: #d6e4ff;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+      .lobby,
+      .overlay {
+        background: rgba(10, 16, 36, 0.92);
+        border: 1px solid #2c3d6b;
+        padding: 20px 28px;
+        border-radius: 8px;
+        min-width: 320px;
+      }
+      .lobby ul {
+        list-style: none;
+        padding: 0;
+      }
+      .lobby li {
+        margin: 8px 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .overlay {
+        margin-top: 150px;
+      }
+      .muted {
+        color: #8796bb;
+      }
+      .chat {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        width: 320px;
+        background: rgba(10, 16, 36, 0.85);
+        border: 1px solid #2c3d6b;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 13px;
+      }
+      .chat .msgs {
+        height: 120px;
+        overflow-y: auto;
+        margin: 6px 0;
+      }
+      .chat form {
+        display: flex;
+        gap: 6px;
+      }
+      .chat input {
+        flex: 1;
+      }
+      button {
+        background: #7fd1ff;
+        border: 0;
+        padding: 4px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

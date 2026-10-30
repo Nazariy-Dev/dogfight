@@ -116,3 +116,32 @@ middleware `?delay=мс` у `vite.config.js`.
 | повільний файл (+2,5 с) | прогрес-бар чекає, гра стартує | `loaded in 2599 ms` |
 
 Після Retry гра в усіх чотирьох випадках доходить до лобі.
+
+## Lab 4 – Node.js: EventEmitter, streams, WebSocket
+
+Workspaces `client/` і `server/`. Сервер (`server/src`): `node:http` (статика з MIME і захистом від `..`,
+`GET/POST /api/rooms`, `/health`, `/api/replays/:id`), `ws` на `/ws`, `config.js` (змінні оточення з перевіркою),
+`rooms.js` (`Room extends EventEmitter`, `RoomManager`), `protocol.js` (ручна перевірка, коди закриття 4000–4008),
+`log/matchlog.js` (object-mode `Transform` → NDJSON через `pipeline`), `log/replay.js`. Запуск:
+`npm run build && npm start`, розробка – `npm run dev:server` + `npm run dev:client` (Vite проксує `/api` і `/ws`).
+
+### Backpressure: RSS сервера під час повільного завантаження
+
+Синтетичний лог 200 МБ (`server/scripts/make-big-log.js`), клієнт читає ≈ 2 МБ/с (`server/scripts/slow-download.js`), 40 с.
+
+![rss](server/rss-backpressure.png)
+
+За 40 с клієнт отримав 24,3 МБ; RSS сервера тримався в межах 76,7–84,1 МБ. `pipeline(createReadStream, res)`
+припиняє читання файлу, коли `res.write()` повертає `false`, і продовжує після `drain`.
+
+### Цикл подій заблоковано на 300 мс (`server/scripts/block-demo.js`)
+
+Чат кожні 100 мс, о 500 мс – `GET /api/slow` (busy-loop 300 мс): повідомлення, надіслані о 632 і 733 мс,
+дійшли за 211 і 110 мс замість 1–3 мс. Поки обробник крутить `while`, libuv не може віддати JS жодної події:
+ні WebSocket-кадру, ні таймера, ні іншого HTTP-запиту. Страждають усі кімнати процесу, а не лише цей запит.
+
+### `'error'` без слухача (`server/scripts/error-crash.js`)
+
+Без слухача `emit('error')` кидає виняток, процес завершується з кодом 1 і не встигає надрукувати `tick`.
+З `room.on('error', …)` помилка логується, процес працює далі. Тому в `ws.js` кожен сокет має `ws.on('error')`.
+Аналог для промісів – unhandled rejection, яка в Node теж завершує процес.

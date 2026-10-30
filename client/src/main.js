@@ -11,6 +11,8 @@ import { GameBus } from './events.js'
 import { createAudio } from './audio.js'
 import { Lobby } from './ui/lobby.js'
 import { mountLobbyView } from './ui/lobby-view.js'
+import { mountChat } from './ui/chat-view.js'
+import { Connection, wsUrl } from './net/connection.js'
 
 // ?fault=404|slow|timeout|abort|badjson — галерея збоїв (README, Lab 3)
 const params = new URLSearchParams(location.search)
@@ -86,7 +88,7 @@ async function boot() {
 function showLobby(assets) {
   window.__app.state = 'lobby'
   drawBackground(ctx, size.w, size.h)
-  const lobby = new Lobby({ url: 'api/rooms.json', intervalMs: 4000, timeoutMs: 2500 })
+  const lobby = new Lobby({ url: '/api/rooms', intervalMs: 4000, timeoutMs: 2500 })
   const unmount = mountLobbyView(ui, lobby)
   lobby.addEventListener('join', (e) => {
     unmount()
@@ -99,6 +101,13 @@ function showLobby(assets) {
 
 function startGame(assets, { room, name }) {
   window.__app.state = 'game'
+  // Мережа (Lab 4): лише кімната і чат; кораблі поки локальні
+  const conn = new Connection(wsUrl(), {
+    onOpenMessages: () => [{ v: 0, type: 'join', room: room.id, name }],
+  })
+  mountChat(ui, conn)
+  conn.connect()
+  window.__app.conn = conn
   const arena = { ...assets.json.arena, ...room.arena }
   const input = createInput(window)
   const world = new World({

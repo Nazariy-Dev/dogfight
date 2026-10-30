@@ -10,7 +10,7 @@ export default [
     rules: { 'no-unused-vars': ['error', { argsIgnorePattern: '^_' }] },
   },
   {
-    files: ['test/**', 'scripts/**', '*.config.js'],
+    files: ['**/test/**', '**/scripts/**', '**/*.config.js', 'server/**'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   prettier,

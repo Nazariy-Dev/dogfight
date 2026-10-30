@@ -1,15 +1,20 @@
 {
   "name": "dogfight",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev:client": "npm run dev -w client",
+    "dev:server": "node --env-file-if-exists=.env --watch server/src/index.js",
+    "build": "npm run build -w client",
+    "start": "node server/src/index.js",
+    "test": "npm test --workspaces",
     "lint": "eslint .",
-    "test": "node --test --test-reporter=spec",
-    "format": "prettier --write src index.html"
+    "format": "prettier --write client server"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

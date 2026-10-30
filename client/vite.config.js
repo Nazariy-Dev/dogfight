@@ -14,6 +14,13 @@ function delayMiddleware(req, _res, next) {
 export default defineConfig({
   // без SPA-fallback: відсутній файл має давати 404, а не index.html
   appType: 'mpa',
+  // у розробці Vite проксує API і WebSocket на Node-сервер
+  server: {
+    proxy: {
+      '/api': 'http://127.0.0.1:8080',
+      '/ws': { target: 'ws://127.0.0.1:8080', ws: true },
+    },
+  },
   plugins: [
     {
       name: 'dogfight-delay',

@@ -5,6 +5,7 @@ export function mountLobbyView(root, lobby) {
       <h1>Dogfight</h1>
       <label>Ім'я <input id="name" maxlength="16" value="pilot"></label>
       <ul id="rooms"><li class="muted">Завантаження кімнат…</li></ul>
+      <form id="create"><input id="newroom" placeholder="нова-кімната" maxlength="24"><button>Create</button></form>
       <p id="status" class="muted"></p>
     </div>`
   const list = root.querySelector('#rooms')
@@ -29,6 +30,13 @@ export function mountLobbyView(root, lobby) {
   const onError = (e) => {
     status.textContent = `Не вдалося оновити список: ${e.detail.message}`
   }
+  root.querySelector('#create').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const id = root.querySelector('#newroom').value.trim().toLowerCase()
+    status.textContent = (await lobby.create(id))
+      ? `Кімнату ${id} створено`
+      : 'Не вдалося створити кімнату'
+  })
   lobby.addEventListener('rooms', onRooms)
   lobby.addEventListener('error', onError)
   return () => {

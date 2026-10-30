@@ -1,5 +1,0 @@
-[
-  { "id": "alpha", "name": "Alpha", "players": 1, "max": 8, "arena": { "asteroids": 5, "homingAsteroids": 1 } },
-  { "id": "bravo", "name": "Bravo (багато каміння)", "players": 0, "max": 8, "arena": { "asteroids": 9, "homingAsteroids": 2 } },
-  { "id": "duel", "name": "Duel", "players": 2, "max": 2, "arena": { "asteroids": 2, "homingAsteroids": 0 } }
-]

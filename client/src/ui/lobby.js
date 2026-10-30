@@ -61,6 +61,22 @@ export class Lobby extends EventTarget {
     return this.#inflight
   }
 
+  /** POST /api/rooms; повертає true, якщо кімнату створено. */
+  async create(id) {
+    try {
+      const res = await (this.fetchImpl ?? fetch)(this.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      })
+      if (res.ok) await this.refresh()
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
   join(roomId, name) {
     const room = this.rooms.find((r) => r.id === roomId)
     if (!room) throw new Error(`No room ${roomId}`)
