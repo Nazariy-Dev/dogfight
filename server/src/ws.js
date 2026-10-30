@@ -2,6 +2,7 @@ import { WebSocketServer } from 'ws'
 import { randomUUID } from 'node:crypto'
 import { CLOSE, out, validate } from './protocol.js'
 import { createTokenBucket } from './ratelimit.js'
+import { decodeInput } from '@dogfight/shared/protocol/codec.js'
 
 /**
  * Життєвий цикл WebSocket-з'єднання:
@@ -11,7 +12,10 @@ import { createTokenBucket } from './ratelimit.js'
  *  - ping кожні heartbeatMs, два пропущені pong — terminate;
  *  - якщо bufferedAmount завеликий — некритичні повідомлення (chat) не шлемо.
  */
-export function attachWebSocket(server, { rooms, cfg, log = () => {} }) {
+export function attachWebSocket(
+  server,
+  { rooms, cfg, log = () => {}, matches = new Map() },
+) {
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: cfg.maxPayload })
   const stats = { connections: 0, closedByReason: {}, droppedForSlow: 0 }
 
@@ -45,6 +49,11 @@ export function attachWebSocket(server, { rooms, cfg, log = () => {} }) {
       room: null,
       missedPongs: 0,
       bucket: createTokenBucket({ rate: cfg.msgPerSecond, capacity: cfg.msgPerSecond }),
+      // input іде 30 разів/с; окремий бакет із запасом на jitter мережі
+      inputBucket: createTokenBucket({
+        rate: cfg.inputPerSecond,
+        capacity: cfg.inputPerSecond * 2,
+      }),
     }
     ws.state = state
     // Без слухача 'error' помилка сокета (наприклад, битий фрейм) звалила б процес
@@ -59,9 +68,24 @@ export function attachWebSocket(server, { rooms, cfg, log = () => {} }) {
     ws.on('pong', () => (state.missedPongs = 0))
 
     ws.on('message', (data, isBinary) => {
-      if (!state.bucket.take()) return closeWith(ws, CLOSE.RATE_LIMIT, 'rate limit')
-      if (isBinary) return closeWith(ws, CLOSE.BAD_MESSAGE, 'binary not supported in v0')
+      if (isBinary) {
+        if (!state.inputBucket.take())
+          return closeWith(ws, CLOSE.RATE_LIMIT, 'input rate limit')
+        // бінарний input (Lab 5): лише після join
+        if (!state.player) return closeWith(ws, CLOSE.NOT_JOINED, 'not joined')
+        let inp
+        try {
+          inp = decodeInput(data)
+        } catch (err) {
+          return closeWith(ws, CLOSE.BAD_MESSAGE, err.message)
+        }
+        matches.get(state.room.id)?.input(state.player.id, inp)
+        return
+      }
       const r = validate(data, { maxBytes: cfg.maxPayload })
+      const isInput = r.ok && r.msg.type === 'input'
+      if (!(isInput ? state.inputBucket : state.bucket).take())
+        return closeWith(ws, CLOSE.RATE_LIMIT, 'rate limit')
       if (!r.ok) return closeWith(ws, r.code, r.reason)
       const msg = r.msg
 
@@ -79,17 +103,34 @@ export function attachWebSocket(server, { rooms, cfg, log = () => {} }) {
         state.player = player
         state.room = room
         room.join(player)
-        send(ws, out('welcome', { id: player.id, room: room.id }), { critical: true })
+        const ship = matches.get(room.id)?.addPlayer(player, { codec: msg.codec })
+        const match = matches.get(room.id)
+        send(
+          ws,
+          out('welcome', {
+            id: player.id,
+            room: room.id,
+            ship: ship?.id,
+            arena: match ? { w: match.world.w, h: match.world.h } : null,
+            tickHz: 30,
+          }),
+          { critical: true },
+        )
         return
       }
       if (!state.player) return closeWith(ws, CLOSE.NOT_JOINED, 'not joined')
       if (msg.type === 'chat') state.room.chat(state.player.id, msg.text)
+      else if (msg.type === 'input')
+        matches.get(state.room.id)?.input(state.player.id, msg)
       else if (msg.type === 'leave') ws.close(CLOSE.NORMAL, 'bye')
     })
 
     ws.on('close', () => {
       clearTimeout(joinTimer)
-      if (state.player && state.room) state.room.leave(state.player.id)
+      if (state.player && state.room) {
+        matches.get(state.room.id)?.removePlayer(state.player.id)
+        state.room.leave(state.player.id)
+      }
       log('info', 'disconnect', {
         player: state.player?.id,
         ip: req.socket.remoteAddress,
@@ -131,6 +172,7 @@ export function attachWebSocket(server, { rooms, cfg, log = () => {} }) {
   return {
     wss,
     stats,
+    send,
     /** Закрити всі сокети кодом 1001 (сервер іде) */
     closeAll(code = CLOSE.GOING_AWAY, reason = 'server shutdown') {
       clearInterval(hb)

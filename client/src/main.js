@@ -1,7 +1,7 @@
 import { createLoop } from './loop.js'
 import { createInput, readControls } from './input.js'
-import { World } from './sim/world.js'
-import { Ship } from './sim/entity.js'
+import { World } from '@dogfight/shared/sim/world.js'
+import { Ship } from '@dogfight/shared/sim/entity.js'
 import { createCanvas } from './render/canvas.js'
 import { createStarfield, drawBackground, drawHud, drawStars } from './render/draw.js'
 import { drawWorld } from './render/scene.js'
@@ -13,6 +13,8 @@ import { Lobby } from './ui/lobby.js'
 import { mountLobbyView } from './ui/lobby-view.js'
 import { mountChat } from './ui/chat-view.js'
 import { Connection, wsUrl } from './net/connection.js'
+import { NetGame, SERVER_DT } from './net/netgame.js'
+import { drawNetWorld, drawNetgraph } from './render/netscene.js'
 
 // ?fault=404|slow|timeout|abort|badjson — галерея збоїв (README, Lab 3)
 const params = new URLSearchParams(location.search)
@@ -99,7 +101,89 @@ function showLobby(assets) {
   window.__app.lobby = lobby
 }
 
-function startGame(assets, { room, name }) {
+// ?net=0 — стара локальна гра (Lab 1–4); інакше мережева з авторитетним сервером
+const NET = params.get('net') !== '0'
+
+function startGame(assets, opts) {
+  if (NET) return startNetGame(assets, opts)
+  return startLocalGame(assets, opts)
+}
+
+/** Lab 5: сервер рахує світ, клієнт шле input, передбачає себе й інтерполює інших. */
+function startNetGame(assets, { room, name }) {
+  window.__app.state = 'game'
+  const codec = params.get('codec') === 'json' ? 'json' : 'binary'
+  const lag = {
+    latencyMs: Number(params.get('lat') ?? 0),
+    jitterMs: Number(params.get('jit') ?? 0),
+    dropRate: Number(params.get('drop') ?? 0),
+  }
+  const predict = params.get('predict') !== '0'
+  const socket = new WebSocket(wsUrl())
+  socket.binaryType = 'arraybuffer'
+  const input = createInput(window)
+  const stars = createStarfield(1280, 720)
+  let game = null
+  let roster = []
+  let chat = []
+  socket.addEventListener('open', () =>
+    socket.send(JSON.stringify({ v: 0, type: 'join', room: room.id, name, codec })),
+  )
+  socket.addEventListener('message', (e) => {
+    if (typeof e.data !== 'string') return
+    const m = JSON.parse(e.data)
+    if (m.type === 'welcome') {
+      game = new NetGame({
+        socket,
+        shipId: m.ship,
+        arena: m.arena,
+        predict,
+        codec,
+        lag,
+        interpDelay: Number(params.get('interp') ?? 100),
+      })
+      window.__app.net = game
+    } else if (m.type === 'roster') roster = m.players.map((p) => p.name)
+    else if (m.type === 'chat') chat = [...chat.slice(-3), `${m.from}: ${m.text}`]
+  })
+  socket.addEventListener('close', (e) => (window.__app.closed = e.code))
+
+  const loop = createLoop({
+    step: SERVER_DT,
+    simulate() {
+      if (!game) return
+      game.step(readControls(input))
+      input.consume()
+    },
+    render(_alpha, stats) {
+      const k = Math.min(size.w / 1280, size.h / 720)
+      ctx.save()
+      drawBackground(ctx, size.w, size.h)
+      ctx.translate((size.w - 1280 * k) / 2, (size.h - 720 * k) / 2)
+      ctx.scale(k, k)
+      drawStars(ctx, stars)
+      if (game) drawNetWorld(ctx, game.view())
+      ctx.restore()
+      drawHud(ctx, stats, [
+        `room     ${room.id}`,
+        `pilot    ${name}`,
+        `players  ${roster.join(', ')}`,
+        ...chat,
+      ])
+      if (game)
+        drawNetgraph(ctx, game.ng, size.w - 212, 8, [
+          `codec    ${codec}`,
+          `predict  ${predict ? 'on' : 'off'}`,
+          `lag      ${lag.latencyMs}±${lag.jitterMs} ms, ${(lag.dropRate * 100).toFixed(0)}%`,
+          `interp   ${game.interpDelay} ms`,
+        ])
+    },
+  })
+  loop.start()
+  Object.assign(window.__app, { loop, socket })
+}
+
+function startLocalGame(assets, { room, name }) {
   window.__app.state = 'game'
   // Мережа (Lab 4): лише кімната і чат; кораблі поки локальні
   const conn = new Connection(wsUrl(), {

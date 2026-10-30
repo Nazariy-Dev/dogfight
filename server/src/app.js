@@ -3,6 +3,7 @@ import { RoomManager } from './rooms.js'
 import { attachWebSocket } from './ws.js'
 import { listReplays, readBody, sendJson, serveStatic, streamReplay } from './http.js'
 import { startMatchLog } from './log/matchlog.js'
+import { Match } from './match.js'
 
 const ROOM_ID = /^[a-z0-9-]{1,24}$/
 
@@ -29,6 +30,24 @@ export function createApp(
     persistent: ['lobby'],
   })
   const matchLogs = new Map()
+  const matches = new Map()
+  // ws ще не створено, тому send передаємо через замикання
+  let wsApi = null
+  const createMatch = (room) => {
+    const m = new Match({
+      room: room.id,
+      seed: 1 + matches.size,
+      send: (player, data) => wsApi?.send(player.ws, data),
+      log,
+    })
+    matches.set(room.id, m)
+  }
+  for (const r of rooms.rooms.values()) createMatch(r)
+  rooms.on('created', createMatch)
+  rooms.on('deleted', (r) => {
+    matches.get(r.id)?.stop()
+    matches.delete(r.id)
+  })
 
   // Лог матчу для кожної кімнати
   const startLog = (room) => {
@@ -78,6 +97,11 @@ export function createApp(
           return sendJson(res, 429, { error: err.message })
         }
       }
+      if (url.pathname === '/api/stats')
+        return sendJson(res, 200, {
+          matches: [...matches.values()].map((m) => m.stats()),
+          ws: wsApi.stats,
+        })
       if (url.pathname === '/api/replays')
         return sendJson(res, 200, await listReplays(cfg.logDir))
       if (url.pathname.startsWith('/api/replays/'))
@@ -106,18 +130,20 @@ export function createApp(
     }
   })
 
-  const ws = attachWebSocket(server, { rooms, cfg, log })
+  const ws = attachWebSocket(server, { rooms, cfg, log, matches })
+  wsApi = ws
 
   /** Плавна зупинка: не приймати нових, закрити сокети, дописати логи. */
   async function shutdown() {
     log('info', 'shutdown start')
     server.close()
     await ws.closeAll()
+    for (const m of matches.values()) m.stop()
     for (const ml of matchLogs.values()) ml.stop()
     await Promise.allSettled([...matchLogs.values()].map((m) => m.done))
     server.closeAllConnections?.()
     log('info', 'shutdown done')
   }
 
-  return { server, rooms, ws, shutdown, matchLogs }
+  return { server, rooms, ws, shutdown, matchLogs, matches }
 }

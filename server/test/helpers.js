@@ -36,8 +36,10 @@ export async function startTestServer(env = {}) {
 export function client(url) {
   const ws = new WebSocket(url)
   const inbox = []
+  const binary = []
   const waiters = []
-  ws.on('message', (d) => {
+  ws.on('message', (d, isBinary) => {
+    if (isBinary) return void binary.push(d)
     const m = JSON.parse(d.toString())
     inbox.push(m)
     for (const w of [...waiters])
@@ -49,6 +51,7 @@ export function client(url) {
   return {
     ws,
     inbox,
+    binary,
     closed,
     opened: new Promise((r, j) => (ws.once('open', r), ws.once('error', j))),
     send: (m) => ws.send(typeof m === 'string' ? m : JSON.stringify({ v: 0, ...m })),

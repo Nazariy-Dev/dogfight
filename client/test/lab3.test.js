@@ -217,7 +217,10 @@ test('sim/ не імпортує audio, HUD чи DOM', () => {
     'ship.js',
     'vector.js',
   ]) {
-    const src = readFileSync(new URL(`../src/sim/${f}`, import.meta.url), 'utf8')
+    const src = readFileSync(
+      new URL(`../../shared/src/sim/${f}`, import.meta.url),
+      'utf8',
+    )
     assert.doesNotMatch(src, /audio|hud|document\.|window\./, f)
   }
 })

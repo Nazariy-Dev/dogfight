@@ -25,7 +25,16 @@ const isStr = (v, min, max) => typeof v === 'string' && v.length >= min && v.len
 const ROOM_ID = /^[a-z0-9-]{1,24}$/
 
 const SCHEMAS = {
-  join: (m) => isStr(m.name, 1, 16) && typeof m.room === 'string' && ROOM_ID.test(m.room),
+  join: (m) =>
+    isStr(m.name, 1, 16) &&
+    typeof m.room === 'string' &&
+    ROOM_ID.test(m.room) &&
+    (m.codec === undefined || m.codec === 'json' || m.codec === 'binary'),
+  // JSON-варіант input (для порівняння з бінарним)
+  input: (m) =>
+    Number.isInteger(m.seq) &&
+    m.seq >= 0 &&
+    ['left', 'right', 'thrust', 'fire'].every((k) => typeof m[k] === 'boolean'),
   chat: (m) => isStr(m.text, 1, 200),
   leave: () => true,
 }

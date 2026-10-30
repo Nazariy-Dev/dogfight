@@ -1,10 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Vector2 } from '../src/sim/vector.js'
-import { Asteroid, Bullet, Entity, Pickup, Ship, SHIP_HP } from '../src/sim/entity.js'
-import { World } from '../src/sim/world.js'
-import { circlesOverlap, naivePairs } from '../src/sim/collision.js'
-import { makeHoming } from '../src/sim/behaviors.js'
+import { Vector2 } from '@dogfight/shared/sim/vector.js'
+import {
+  Asteroid,
+  Bullet,
+  Entity,
+  Pickup,
+  Ship,
+  SHIP_HP,
+} from '@dogfight/shared/sim/entity.js'
+import { World } from '@dogfight/shared/sim/world.js'
+import { circlesOverlap, naivePairs } from '@dogfight/shared/sim/collision.js'
+import { makeHoming } from '@dogfight/shared/sim/behaviors.js'
 
 const DT = 1 / 60
 

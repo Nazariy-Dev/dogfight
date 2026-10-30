@@ -1,6 +1,6 @@
 // Демонстрація бага з this: node scripts/this-bug.js
-import { World } from '../src/sim/world.js'
-import { Ship } from '../src/sim/entity.js'
+import { World } from '@dogfight/shared/sim/world.js'
+import { Ship } from '@dogfight/shared/sim/entity.js'
 
 const world = new World({ seed: 1 })
 const ship = world.spawn(new Ship({ x: 100, y: 100 }))

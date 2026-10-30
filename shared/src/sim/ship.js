@@ -4,6 +4,12 @@ export const THRUST = 480 // px/с²: до 300 px/с за ~0,8 с
 export const DRAG = 0.9 // 1/с: експоненційне гальмування без газу
 export const MAX_SPEED = 360 // px/с: обмеження швидкості
 
+/**
+ * Налагоджувальний перемикач для експерименту Lab 5: noise > 0 додає Math.random()
+ * у integrate і ламає детермінізм. За замовчуванням 0 — у грі вимкнено.
+ */
+export const simDebug = { noise: 0 }
+
 /** Корабель — звичайний об'єкт даних, без методів і без DOM. */
 export function createShip({ x = 0, y = 0, angle = -Math.PI / 2 } = {}) {
   return { x, y, vx: 0, vy: 0, angle, thrusting: false }
@@ -37,6 +43,11 @@ export function integrate(ship, controls, dt) {
     const k = MAX_SPEED / speed
     ship.vx *= k
     ship.vy *= k
+  }
+
+  if (simDebug.noise) {
+    ship.vx += (Math.random() - 0.5) * simDebug.noise
+    ship.vy += (Math.random() - 0.5) * simDebug.noise
   }
 
   ship.x += ship.vx * dt

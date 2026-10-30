@@ -2,8 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createLoop } from '../src/loop.js'
-import { createShip, integrate, MAX_SPEED } from '../src/sim/ship.js'
-import { wrap, unwrapPrevious } from '../src/sim/arena.js'
+import { createShip, integrate, MAX_SPEED } from '@dogfight/shared/sim/ship.js'
+import { wrap, unwrapPrevious } from '@dogfight/shared/sim/arena.js'
 import { lerpAngle } from '../src/render/lerp.js'
 import { createInput } from '../src/input.js'
 

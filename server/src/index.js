@@ -1,5 +1,9 @@
 import { loadConfig } from './config.js'
 import { createApp, makeLogger } from './app.js'
+import { simDebug } from '@dogfight/shared/sim/ship.js'
+
+// Експеримент Lab 5: SIM_NOISE=20 ламає детермінізм лише на сервері
+simDebug.noise = Number(process.env.SIM_NOISE ?? 0)
 
 const log = makeLogger(process.env.LOG_LEVEL ?? 'info')
 let cfg
