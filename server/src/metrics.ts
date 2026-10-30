@@ -34,11 +34,18 @@ export function createMetrics(
   let prevBytesOut = 0
   let prevT = performance.now()
   const rates = { msgs: 0, bytesIn: 0, bytesOut: 0 }
+  const seenOut = new WeakMap<Match, number>()
   const updateRates = (): void => {
     const now = performance.now()
     const dt = Math.max(0.001, (now - prevT) / 1000)
     const ws = getWs()
-    const out = [...getMatches()].reduce((a, m) => a + m.bytesOut, 0)
+    // лічильник монотонний: зростання по кожному матчу окремо, видалені кімнати не дають «мінус»
+    let out = prevBytesOut
+    for (const m of getMatches()) {
+      const last = seenOut.get(m) ?? 0
+      out += m.bytesOut - last
+      seenOut.set(m, m.bytesOut)
+    }
     rates.msgs = ((ws?.stats.messagesIn ?? 0) - prevMsgs) / dt
     rates.bytesIn = ((ws?.stats.bytesIn ?? 0) - prevBytesIn) / dt
     rates.bytesOut = (out - prevBytesOut) / dt
