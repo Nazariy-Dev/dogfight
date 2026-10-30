@@ -1,5 +1,5 @@
 // Перевірки Lab 1 без браузера: node --test test/
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { createLoop } from '../src/loop.ts'
 import { createShip, integrate, MAX_SPEED } from '@dogfight/shared/sim/ship.ts'

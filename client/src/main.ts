@@ -36,6 +36,8 @@ interface AppState {
   socket?: WebSocket
   conn?: Connection
   closed?: number
+  chat?: string[]
+  frameTimes?: number[]
 }
 declare global {
   interface Window {
@@ -200,15 +202,23 @@ function startNetGame(room: RoomInfo, name: string): void {
     app.net = game
   })
   connWithRaw.on('roster', (m) => (roster = m.players.map((p) => p.name)))
-  connWithRaw.on('chat', (m) => (chat = [...chat.slice(-3), `${m.from}: ${m.text}`]))
+  connWithRaw.on('chat', (m) => {
+    chat = [...chat.slice(-3), `${m.from}: ${m.text}`]
+    app.chat = chat
+  })
   connWithRaw.on('status', (s) => {
     if (s.status === 'closed') app.closed = s.code
   })
   connWithRaw.connect()
   app.conn = connWithRaw
 
+  const frameTimes: number[] = []
+  app.frameTimes = frameTimes
   const loop = createLoop({
     step: SERVER_DT,
+    onFrame: (_now, st) => {
+      if (frameTimes.length < 20000) frameTimes.push(st.frameTimeMs)
+    },
     simulate() {
       if (!game) return
       game.step(readControls(input))

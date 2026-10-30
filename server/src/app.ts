@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'node:http'
+import { performance } from 'node:perf_hooks'
 import { RoomManager, type Room } from './rooms.ts'
 import { attachWebSocket, type WsApi } from './ws.ts'
 import {
@@ -44,6 +45,7 @@ export function createApp(
   const matchLogs = new Map<string, MatchLog>()
   const matches = new Map<string, Match>()
   let wsApi: WsApi | null = null
+  let lastElu = performance.eventLoopUtilization()
 
   const onRoom = (room: Room): void => {
     try {
@@ -61,6 +63,8 @@ export function createApp(
         room: room.id,
         seed: 1 + matches.size,
         send: (p, data) => wsApi?.send(p.ws, data),
+        collisions: process.env.COLLISIONS === 'naive' ? 'naive' : 'spatial',
+        asteroids: Number(process.env.ASTEROIDS ?? 4),
       }),
     )
   }
@@ -106,11 +110,34 @@ export function createApp(
             })
           }
         }
-        if (url.pathname === '/api/stats')
+        const botsMatch = /^\/api\/rooms\/([a-z0-9-]{1,24})\/bots$/.exec(url.pathname)
+        if (botsMatch && req.method === 'POST') {
+          const n = Number(url.searchParams.get('n') ?? 1)
+          if (!Number.isInteger(n) || n < 1 || n > 32)
+            return sendJson(res, 400, { error: 'n in 1..32' })
+          const id = botsMatch[1] ?? ''
+          let room = rooms.get(id)
+          try {
+            room ??= rooms.create({ id })
+          } catch (err: unknown) {
+            return sendJson(res, 429, {
+              error: err instanceof Error ? err.message : 'limit',
+            })
+          }
+          const m = matches.get(room.id)
+          if (!m) return sendJson(res, 500, { error: 'no match' })
+          return sendJson(res, 200, { room: room.id, bots: m.addBots(n) })
+        }
+        if (url.pathname === '/api/stats') {
+          // ELU — частка часу, коли цикл подій був зайнятий, з попереднього запиту
+          const elu = performance.eventLoopUtilization(lastElu)
+          lastElu = performance.eventLoopUtilization()
           return sendJson(res, 200, {
             matches: [...matches.values()].map((m) => m.stats()),
             ws: wsApi?.stats,
+            process: { rssMB: process.memoryUsage().rss / 1048576, elu: elu.utilization },
           })
+        }
         if (url.pathname === '/api/replays')
           return sendJson(res, 200, await listReplays(cfg.logDir))
         if (url.pathname.startsWith('/api/replays/'))

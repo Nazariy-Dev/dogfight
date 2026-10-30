@@ -11,6 +11,9 @@ import {
   type Seq,
 } from '@dogfight/shared/types.ts'
 import { createTicker, percentile, type Ticker } from './timer.ts'
+import { Bot } from './bot.ts'
+import { spatialHashPairs } from '@dogfight/shared/sim/spatial.ts'
+import { naivePairs } from '@dogfight/shared/sim/collision.ts'
 import type { Player } from './rooms.ts'
 
 export const TICK_HZ = 30
@@ -38,6 +41,8 @@ interface PlayerState {
 export interface MatchStats {
   room: string
   players: number
+  bots: number
+  entities: number
   tick: number
   ticks: number
   skipped: number
@@ -53,6 +58,7 @@ export class Match {
   readonly room: string
   readonly world: World
   readonly players = new Map<string, PlayerState>()
+  readonly bots: { bot: Bot; ship: Ship }[] = []
   readonly send: (player: Player, data: ArrayBuffer | string) => void
   bytesOut = 0
   readonly ticker: Ticker
@@ -61,14 +67,22 @@ export class Match {
     room,
     seed = 1,
     send,
+    collisions = 'spatial',
+    asteroids = 4,
   }: {
     room: string
     seed?: number
     send: Match['send']
+    collisions?: 'naive' | 'spatial'
+    asteroids?: number
   }) {
     this.room = room
-    this.world = new World({ seed })
-    this.world.populate({ asteroids: 4, homingAsteroids: 0 })
+    // Lab 7: O(n²) замінено просторовим хешем (вибір лишено для заміру до/після)
+    this.world = new World({
+      seed,
+      collide: collisions === 'naive' ? naivePairs : spatialHashPairs(),
+    })
+    this.world.populate({ asteroids, homingAsteroids: 0 })
     this.send = send
     this.ticker = createTicker(1000 / TICK_HZ, () => this.tick())
   }
@@ -92,12 +106,30 @@ export class Match {
     return ship
   }
 
+  /** Додати n ботів: той самий шлях, що й людина — Ship + controls щокроку. */
+  addBots(n: number): number {
+    for (let i = 0; i < n; i++) {
+      const p = this.world.safeSpot()
+      const ship = this.world.spawn(
+        new Ship({
+          x: p.x,
+          y: p.y,
+          owner: `bot-${this.bots.length + 1}`,
+          color: '#bbbbbb',
+        }),
+      )
+      this.bots.push({ bot: new Bot(), ship })
+    }
+    this.ticker.start()
+    return this.bots.length
+  }
+
   removePlayer(playerId: string): void {
     const st = this.players.get(playerId)
     if (!st) return
     this.world.despawn(st.ship.id)
     this.players.delete(playerId)
-    if (this.players.size === 0) this.ticker.stop()
+    if (this.players.size === 0 && this.bots.length === 0) this.ticker.stop()
   }
 
   /** Input: seq лише зростає, черга обмежена. */
@@ -120,6 +152,7 @@ export class Match {
       }
       st.ship.controls = st.lastInput
     }
+    for (const b of this.bots) b.ship.controls = b.bot.next(this.world, b.ship)
     this.world.step(DT)
     const entities = worldToEntities(this.world)
     for (const st of this.players.values()) {
@@ -139,6 +172,8 @@ export class Match {
     return {
       room: this.room,
       players: this.players.size,
+      bots: this.bots.length,
+      entities: this.world.size,
       tick: this.world.tick,
       ticks: s.ticks,
       skipped: s.skipped,

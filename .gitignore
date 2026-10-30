@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.e2e-logs
+playwright-report
+test-results
+coverage
+logs
+server/prof

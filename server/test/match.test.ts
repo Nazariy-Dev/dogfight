@@ -1,4 +1,4 @@
-import { test, after } from 'node:test'
+import { test, afterAll as after, expect } from 'vitest'
 import assert from 'node:assert/strict'
 import { decodeSnapshot, encodeInput } from '@dogfight/shared/protocol/codec.ts'
 import { createTicker } from '../src/timer.ts'
@@ -66,4 +66,20 @@ test('ticker: 30 Гц за абсолютним часом, без дрейфу'
   await new Promise((r) => setTimeout(r, 1000))
   t.stop()
   assert.ok(n >= 29 && n <= 31, `ticks=${n}`)
+})
+
+test('боти: POST /api/rooms/:id/bots?n=3, світ рахується без людей', async () => {
+  const r = await fetch(`${srv.base}/api/rooms/botroom/bots?n=3`, { method: 'POST' })
+  expect(r.status).toBe(200)
+  expect(await r.json()).toEqual({ room: 'botroom', bots: 3 })
+  expect(
+    (await fetch(`${srv.base}/api/rooms/botroom/bots?n=99`, { method: 'POST' })).status,
+  ).toBe(400)
+  await new Promise((res) => setTimeout(res, 400))
+  const stats = (await (await fetch(`${srv.base}/api/stats`)).json()) as {
+    matches: { room: string; ticks: number; bots: number }[]
+  }
+  const m = stats.matches.find((x) => x.room === 'botroom')
+  expect(m?.bots).toBe(3)
+  expect(m?.ticks).toBeGreaterThan(8)
 })

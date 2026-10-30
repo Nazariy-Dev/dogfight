@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Worker vs main: decode snapshot</title>
+<pre id="out">running…</pre>
+<script type="module">
+  // Експеримент Lab 7: чи варто виносити декодування знімка у Web Worker.
+  // Знімок 762 байти (30 сутностей), 30 знімків/с; міряємо час головного потоку на один знімок.
+  const N = 3000
+  const buf = new ArrayBuffer(12 + 25 * 30)
+  const v = new DataView(buf)
+  v.setUint8(0, 1); v.setUint8(1, 2); v.setUint16(10, 30, true)
+  function decode(b) {
+    const d = new DataView(b), n = d.getUint16(10, true), out = []
+    for (let i = 0, o = 12; i < n; i++, o += 25)
+      out.push({ id: d.getUint32(o, true), kind: d.getUint8(o + 4), x: d.getFloat32(o + 5, true), y: d.getFloat32(o + 9, true),
+        vx: d.getFloat32(o + 13, true), vy: d.getFloat32(o + 17, true), angle: d.getInt16(o + 21, true), hp: d.getUint8(o + 23), flags: d.getUint8(o + 24) })
+    return out
+  }
+  // 1) на головному потоці
+  for (let i = 0; i < 500; i++) decode(buf.slice(0))
+  let t = performance.now()
+  for (let i = 0; i < N; i++) decode(buf.slice(0))
+  const mainUs = ((performance.now() - t) * 1000) / N
+  // 2) у воркері: головний потік лише передає буфер (transfer) і приймає структуровану копію результату
+  const src = `const decode=${decode.toString()};onmessage=e=>postMessage(decode(e.data))`
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })))
+  let mainBusy = 0, got = 0
+  await new Promise((resolve) => {
+    w.onmessage = (e) => {
+      const t0 = performance.now(); const r = e.data; mainBusy += performance.now() - t0 + 0; got++
+      if (got < N) send(); else resolve()
+    }
+    function send() { const b = buf.slice(0); const t0 = performance.now(); w.postMessage(b, [b]); mainBusy += performance.now() - t0 }
+    send()
+  })
+  t = performance.now()
+  got = 0
+  const rtt = await new Promise((resolve) => {
+    w.onmessage = () => { if (++got < N) { const b = buf.slice(0); w.postMessage(b, [b]) } else resolve(((performance.now() - t) * 1000) / N) }
+    const b = buf.slice(0); w.postMessage(b, [b])
+  })
+  const res = { mainDecodeUs: +mainUs.toFixed(2), workerMainThreadSendUs: +((mainBusy * 1000) / N).toFixed(2), workerRoundTripUs: +rtt.toFixed(1) }
+  document.getElementById('out').textContent = JSON.stringify(res, null, 2)
+  window.result = res
+</script>

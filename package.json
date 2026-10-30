@@ -13,21 +13,27 @@
     "dev:server": "node --env-file-if-exists=.env --watch server/src/index.ts",
     "build": "npm run build -w client",
     "start": "node server/src/index.ts",
-    "test": "npm test --workspaces",
+    "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write client server",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "coverage": "vitest run --coverage",
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.5",
     "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^4.0.5",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
+    "fast-check": "^4.3.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.1",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^4.0.5"
   }
 }

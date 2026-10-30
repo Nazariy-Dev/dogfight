@@ -3,6 +3,7 @@ import { integrate } from './ship.ts'
 import { makeHoming, type Homing } from './behaviors.ts'
 import { asEntityId, NO_CONTROLS, type Controls, type EntityId } from '../types.ts'
 import type { World } from './world.ts'
+import { Pool } from './pool.ts'
 
 export type EntityKind = 'ship' | 'bullet' | 'asteroid' | 'explosion' | 'pickup'
 
@@ -183,6 +184,9 @@ export interface Particle {
   vy: number
 }
 
+/** Спільний пул частинок вибухів (Lab 7): частинки перевикористовуються, а не створюються щоразу. */
+export const particlePool = new Pool<Particle>(() => ({ x: 0, y: 0, vx: 0, vy: 0 }), 512)
+
 export class Explosion extends EntityBase {
   readonly kind = 'explosion'
   ttl: number
@@ -207,7 +211,11 @@ export class Explosion extends EntityBase {
       p.y += p.vy * dt
     }
     this.ttl -= dt
-    if (this.ttl <= 0) this.alive = false
+    if (this.ttl <= 0) {
+      this.alive = false
+      for (const p of this.particles) particlePool.release(p)
+      this.particles = []
+    }
   }
 }
 

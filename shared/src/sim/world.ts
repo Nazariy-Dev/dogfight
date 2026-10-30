@@ -9,6 +9,7 @@ import {
   type EntityKind,
   type EntityOfKind,
   type Particle,
+  particlePool,
 } from './entity.ts'
 import { naivePairs, type CollisionSystem } from './collision.ts'
 import { homingSystem, makeHoming, PICKUP_EFFECTS } from './behaviors.ts'
@@ -43,6 +44,8 @@ export interface WorldOptions {
  */
 export class World {
   readonly #entities = new Map<EntityId, Entity>()
+  /** Індекс за видом (Lab 7): ofKind більше не обходить усі сутності. */
+  readonly #byKind = new Map<EntityKind, Set<Entity>>()
   readonly w: number
   readonly h: number
   readonly rng: Rng
@@ -69,6 +72,9 @@ export class World {
   spawn<E extends Entity>(e: E): E {
     e.world = this
     this.#entities.set(e.id, e)
+    let set = this.#byKind.get(e.kind)
+    if (!set) this.#byKind.set(e.kind, (set = new Set()))
+    set.add(e)
     return e
   }
   despawn(id: EntityId): void {
@@ -85,10 +91,22 @@ export class World {
     yield* this.#entities.values()
   }
   *ofKind<K extends EntityKind>(kind: K): Generator<EntityOfKind<K>> {
-    for (const e of this) if (isKind(e, kind)) yield e
+    const set = this.#byKind.get(kind)
+    if (set) for (const e of set) if (isKind(e, kind)) yield e
+  }
+  /** Масив сутностей виду без генератора — для гарячих циклів (боти, системи). */
+  listOfKind<K extends EntityKind>(kind: K): EntityOfKind<K>[] {
+    const out: EntityOfKind<K>[] = []
+    const set = this.#byKind.get(kind)
+    if (set) for (const e of set) if (isKind(e, kind)) out.push(e)
+    return out
   }
   sweep(): void {
-    for (const [id, e] of this.#entities) if (!e.alive) this.#entities.delete(id)
+    for (const [id, e] of this.#entities)
+      if (!e.alive) {
+        this.#entities.delete(id)
+        this.#byKind.get(e.kind)?.delete(e)
+      }
   }
 
   /** Один крок симуляції фіксованої тривалості dt. */
@@ -180,8 +198,14 @@ export class World {
   explode(pos: Vector2, color: string): Explosion {
     const particles: Particle[] = []
     for (let i = 0; i < 24; i++) {
-      const v = Vector2.fromAngle(this.rng.range(0, Math.PI * 2), this.rng.range(40, 220))
-      particles.push({ x: 0, y: 0, vx: v.x, vy: v.y })
+      const a = this.rng.range(0, Math.PI * 2)
+      const sp = this.rng.range(40, 220)
+      const p = particlePool.acquire()
+      p.x = 0
+      p.y = 0
+      p.vx = Math.cos(a) * sp
+      p.vy = Math.sin(a) * sp
+      particles.push(p)
     }
     const e = this.spawn(new Explosion({ x: pos.x, y: pos.y, particles, color }))
     this.emit('exploded', { at: { x: pos.x, y: pos.y }, id: e.id })
