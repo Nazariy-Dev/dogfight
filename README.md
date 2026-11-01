@@ -4,7 +4,7 @@
 Автор: Попцов Назарій, Б-121-23-2-ПІ.
 
 Жива гра: https://dogfight-zn45.onrender.com (WebSocket: `wss://dogfight-zn45.onrender.com/ws`), Render, Frankfurt, free-план.
-Деплой: Render autoDeploy з гілки `main` (Docker). Безкоштовний інстанс засинає після простою, перший запит будить його до хвилини.
+Деплой: Render web service (Docker, гілка `main`, autoDeploy увімкнено). Після створення сервісу пуші в `main` не запускали деплой автоматично (Render, схоже, не має webhook-доступу до репозиторію), тому нові версії поки викочуються ручним deploy у Render. Безкоштовний інстанс засинає після простою, перший запит будить його до хвилини.
 
 Запуск локально: `npm install`, потім `npm run dev` (розробка) або `npm run build && npm run preview`.
 Керування: стрілки або WASD, газ – ↑/W.
