@@ -234,7 +234,7 @@ RTT тут – від відправки input до знімка, що його 
 
 ## Lab 7 – V8, пам'ять і тести
 
-[![CI](https://github.com/<user>/dogfight/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/Nazariy-Dev/dogfight/actions/workflows/ci.yml/badge.svg)](https://github.com/Nazariy-Dev/dogfight/actions/workflows/ci.yml)
 
 `npm test` (Vitest, три проєкти) – 101 тест, з них 8 властивостей fast-check (`shared/test/properties.test.ts`):
 round-trip кодека, довжина кадру, довільні байти → лише `CodecError`, зіпсований байт, корабель і весь світ

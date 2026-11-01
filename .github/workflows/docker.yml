@@ -1,0 +1,28 @@
+name: Docker image check
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        run: docker build --build-arg GIT_SHA=${GITHUB_SHA::7} -t dogfight:ci .
+      - name: docker images
+        run: docker images dogfight:ci --format 'REPOSITORY={{.Repository}} TAG={{.Tag}} SIZE={{.Size}}'
+      - name: docker run + /health
+        run: |
+          docker run -d --name df -p 8080:8080 dogfight:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8080/health && break; sleep 1; done
+          echo; docker inspect --format 'user={{.Config.User}} cmd={{json .Config.Cmd}}' df
+      - name: docker stop (SIGTERM) timing
+        run: |
+          start=$(date +%s%N)
+          docker stop -t 10 df
+          end=$(date +%s%N)
+          echo "docker stop took $(( (end-start)/1000000 )) ms"
+          echo "exit code: $(docker inspect --format '{{.State.ExitCode}}' df)"
+          docker logs df 2>&1 | tail -6
