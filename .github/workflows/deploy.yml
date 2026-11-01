@@ -30,4 +30,5 @@ jobs:
       - name: Trigger deploy
         env:
           HOOK: ${{ secrets.DEPLOY_HOOK_URL }}
-        run: if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "DEPLOY_HOOK_URL not set: Render autoDeploy handles main"; fi
+        run: |
+          if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "DEPLOY_HOOK_URL not set, Render autoDeploy handles main"; fi
