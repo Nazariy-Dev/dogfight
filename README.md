@@ -154,6 +154,8 @@ Workspaces `client/` і `server/`. Сервер (`server/src`): `node:http` (с�
 (тікер за абсолютним цільовим часом). Клієнт: `client/src/net/netgame.js`, `lagsim.js`, netgraph праворуч угорі.
 Параметри: `?lat=50&jit=15&drop=0.02&predict=0&codec=json&interp=100`.
 
+![Два вікна, 50 ± 15 мс, 2 % втрат](docs/lab5-two-windows.gif)
+
 ![A](docs/lab5-window-A.png) ![B](docs/lab5-window-B.png)
 
 ### Формат (little-endian)
