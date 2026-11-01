@@ -26,6 +26,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ghcr.io/${{ github.repository }}:latest
-      # Розгортання на хостингу: платформа тягне новий образ за webhook (адреса — секрет репозиторію)
+      # Хостинг (Render) розгортає main сам через autoDeploy; deploy hook — лише якщо задано секрет
       - name: Trigger deploy
-        run: curl -fsS -X POST "${{ secrets.DEPLOY_HOOK_URL }}"
+        env:
+          HOOK: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "DEPLOY_HOOK_URL not set: Render autoDeploy handles main"; fi

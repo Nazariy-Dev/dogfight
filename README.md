@@ -3,7 +3,10 @@
 Мультиплеєрна браузерна гра в реальному часі (курс «Програмування на JavaScript»).
 Автор: Попцов Назарій, Б-121-23-2-ПІ.
 
-Запуск: `npm install`, потім `npm run dev` (розробка) або `npm run build && npm run preview`.
+Жива гра: https://dogfight-zn45.onrender.com (WebSocket: `wss://dogfight-zn45.onrender.com/ws`), Render, Frankfurt, free-план.
+Деплой: Render autoDeploy з гілки `main` (Docker). Безкоштовний інстанс засинає після простою, перший запит будить його до хвилини.
+
+Запуск локально: `npm install`, потім `npm run dev` (розробка) або `npm run build && npm run preview`.
 Керування: стрілки або WASD, газ – ↑/W.
 
 ## Lab 1 – Event loop і ігровий цикл

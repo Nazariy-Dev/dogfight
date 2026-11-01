@@ -60,6 +60,9 @@ export function loadConfig(
   env: Record<string, string | undefined> = process.env,
 ): ServerConfig {
   // порожній рядок у .env трактуємо як «не задано»
+  // Render передає SHA коміту як RENDER_GIT_COMMIT, а не build-arg GIT_SHA
+  if (!env.GIT_SHA && env.RENDER_GIT_COMMIT)
+    env = { ...env, GIT_SHA: env.RENDER_GIT_COMMIT.slice(0, 7) }
   const clean = Object.fromEntries(
     Object.entries(env).filter(([, v]) => v !== undefined && v !== ''),
   )
